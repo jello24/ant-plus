@@ -4,6 +4,7 @@ var SSD = require('./build/stride-speed-distance-sensors');
 var SC = require('./build/speed-cadence-sensors');
 var BP = require('./build/bicycle-power-sensors');
 var FE = require('./build/fitness-equipment-sensors');
+var CD = require('./build/cadence-sensors');
 
 module.exports = {
 	GarminStick2: Ant.GarminStick2,
@@ -17,5 +18,6 @@ module.exports = {
 	BicyclePowerSensor: BP.BicyclePowerSensor,
 	BicyclePowerScanner: BP.BicyclePowerScanner,
 	FitnessEquipmentSensor: FE.FitnessEquipmentSensor,
-	FitnessEquipmentScanner: FE.FitnessEquipmentScanner
+	FitnessEquipmentScanner: FE.FitnessEquipmentScanner,
+    CadenceSensor: CD.CadenceSensor
 };
