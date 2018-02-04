@@ -16,11 +16,8 @@ class CadenceSensorState {
 	DeviceID: number;
 	CadenceEventTime: number;
 	CumulativeCadenceRevolutionCount: number;
-	//SpeedEventTime: number;
-	//CumulativeSpeedRevolutionCount: number;
 	CalculatedCadence: number;
-	CalculatedDistance: number;
-	CalculatedSpeed: number;
+	BatteryLevel: number;
 }
 
 class CadenceScanState extends CadenceSensorState {
@@ -36,14 +33,7 @@ export class CadenceSensor extends Ant.AntPlusSensor {
 
 	static deviceType = 0x7A;
 
-	wheelCircumference: number = 2.118; //This is my 700c wheel, just using as default
-
-	setWheelCircumference(wheelCircumference: number) {
-		this.wheelCircumference = wheelCircumference;
-	}
-
 	public attach(channel, deviceID): void {
-        console.log('Attach sensor deviceID: ' + CadenceSensor.deviceType);
 		super.attach(channel, 'receive', deviceID, CadenceSensor.deviceType, 0, 255, 8086);
 		this.state = new CadenceSensorState(deviceID);
 	}
@@ -57,14 +47,13 @@ export class CadenceSensor extends Ant.AntPlusSensor {
 
 		switch (data.readUInt8(Messages.BUFFER_INDEX_MSG_TYPE)) {
 			case Constants.MESSAGE_CHANNEL_BROADCAST_DATA:
-			case Constants.MESSAGE_CHANNEL_ACKNOWLEDGED_DATA:
-			case Constants.MESSAGE_CHANNEL_BURST_DATA:
 				if (this.deviceID === 0) {
 					this.write(Messages.requestMessage(this.channel, Constants.MESSAGE_CHANNEL_ID));
 				}
-
 				updateState(this, this.state, data);
 				break;
+			case Constants.MESSAGE_CHANNEL_ACKNOWLEDGED_DATA:
+			case Constants.MESSAGE_CHANNEL_BURST_DATA:
 			case Constants.MESSAGE_CHANNEL_ID:
 				this.deviceID = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA);
 				this.transmissionType = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA + 3);
@@ -84,12 +73,6 @@ export class CadenceScanner extends Ant.AntPlusScanner {
 	}
 
 	static deviceType = 0x7A;
-
-	wheelCircumference: number = 2.118; //This is my 700c wheel, just using as default
-
-	setWheelCircumference(wheelCircumference: number) {
-		this.wheelCircumference = wheelCircumference;
-	}
 
 	public scan() {
 		super.scan('receive');
@@ -141,13 +124,18 @@ function updateState(
 	//get old state for calculating cumulative values
 	const oldCadenceTime = state.CadenceEventTime;
 	const oldCadenceCount = state.CumulativeCadenceRevolutionCount;
-	//const oldSpeedTime = state.SpeedEventTime;
-	//const oldSpeedCount = state.CumulativeSpeedRevolutionCount;
 
-	let cadenceTime = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA);
-	const cadenceCount = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 2);
-	//let speedEventTime = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 4);
-	//const speedRevolutionCount = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 6);
+	let cadenceTime = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 4);
+	const cadenceCount = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 6);
+
+	var cadence = 0;
+
+	if(isNaN(oldCadenceTime))
+	{
+		state.CadenceEventTime = cadenceTime;
+	}
+
+	console.log('cadenceTime: ' + cadenceTime + ' oldCadenceTime: ' + oldCadenceTime);
 
 	if (cadenceTime !== oldCadenceTime) {
 		state.CadenceEventTime = cadenceTime;
@@ -155,29 +143,24 @@ function updateState(
 		if (oldCadenceTime > cadenceTime) { //Hit rollover value
 			cadenceTime += (1024 * 64);
 		}
-
-		const cadence = ((60 * (cadenceCount - oldCadenceCount) * 1024) / (cadenceTime - oldCadenceTime));
+		
+		if(cadenceCount == 0)
+		{
+			cadence = 0;
+		}
+		else
+		{
+			cadence = ((60 * (cadenceCount - oldCadenceCount) * 1024) / (cadenceTime - oldCadenceTime));
+		}
+			
 		if (!isNaN(cadence)) {
 			state.CalculatedCadence = cadence;
 			sensor.emit('cadenceData', state);
 		}
 	}
-
-	/*if (speedEventTime !== oldSpeedTime) {
-		state.SpeedEventTime = speedEventTime;
-		state.CumulativeSpeedRevolutionCount = speedRevolutionCount;
-		if (oldSpeedTime > speedEventTime) { //Hit rollover value
-			speedEventTime += (1024 * 64);
-		}
-
-		const distance = sensor.wheelCircumference * (speedRevolutionCount - oldSpeedCount);
-		state.CalculatedDistance = distance;
-
-		//speed in m/sec
-		const speed = (distance * 1024) / (speedEventTime - oldSpeedTime);
-		if (!isNaN(speed)) {
-			state.CalculatedSpeed = speed;
-			sensor.emit('speedData', state);
-		}
-	}*/
+	else
+	{
+		state.CalculatedCadence = 0;
+		sensor.emit('cadenceData', state);
+	}
 }

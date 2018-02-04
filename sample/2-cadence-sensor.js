@@ -5,7 +5,7 @@ const stick = new Ant.GarminStick2();
 const cadenceSensor = new Ant.CadenceSensor(stick);
 cadenceSensor.setWheelCircumference(2.120); //Wheel circumference in meters
 
-speedCadenceSensor.on('speedData', data => {
+cadenceSensor.on('speedData', data => {
   console.log(`speed: ${data.CalculatedSpeed}`);
 });
 
