@@ -34,7 +34,7 @@ export class CadenceSensor extends Ant.AntPlusSensor {
 	static deviceType = 0x7A;
 
 	public attach(channel, deviceID): void {
-		super.attach(channel, 'receive', deviceID, CadenceSensor.deviceType, 0, 255, 8086);
+		super.attach(channel, 'receive', deviceID, CadenceSensor.deviceType, 0, 255, 8192);
 		this.state = new CadenceSensorState(deviceID);
 	}
 
@@ -47,13 +47,13 @@ export class CadenceSensor extends Ant.AntPlusSensor {
 
 		switch (data.readUInt8(Messages.BUFFER_INDEX_MSG_TYPE)) {
 			case Constants.MESSAGE_CHANNEL_BROADCAST_DATA:
-				if (this.deviceID === 0) {
-					this.write(Messages.requestMessage(this.channel, Constants.MESSAGE_CHANNEL_ID));
-				}
-				updateState(this, this.state, data);
-				break;
 			case Constants.MESSAGE_CHANNEL_ACKNOWLEDGED_DATA:
 			case Constants.MESSAGE_CHANNEL_BURST_DATA:
+                if (this.deviceID === 0) {
+                    this.write(Messages.requestMessage(this.channel, Constants.MESSAGE_CHANNEL_ID));
+                }
+                updateState(this, this.state, data);
+                break;
 			case Constants.MESSAGE_CHANNEL_ID:
 				this.deviceID = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA);
 				this.transmissionType = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA + 3);
@@ -127,15 +127,11 @@ function updateState(
 
 	let cadenceTime = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 4);
 	const cadenceCount = data.readUInt16LE(Messages.BUFFER_INDEX_MSG_DATA + 6);
+	const pgNum = data.readUInt8(Messages.BUFFER_INDEX_MSG_DATA);
 
 	var cadence = 0;
 
-	if(isNaN(oldCadenceTime))
-	{
-		state.CadenceEventTime = cadenceTime;
-	}
-
-	console.log('cadenceTime: ' + cadenceTime + ' oldCadenceTime: ' + oldCadenceTime);
+	// console.log('cadenceTime: ' + cadenceTime + ' oldCadenceTime: ' + oldCadenceTime + ', Page Num = ' + pgNum.toString(2));
 
 	if (cadenceTime !== oldCadenceTime) {
 		state.CadenceEventTime = cadenceTime;
@@ -144,14 +140,8 @@ function updateState(
 			cadenceTime += (1024 * 64);
 		}
 		
-		if(cadenceCount == 0)
-		{
-			cadence = 0;
-		}
-		else
-		{
-			cadence = ((60 * (cadenceCount - oldCadenceCount) * 1024) / (cadenceTime - oldCadenceTime));
-		}
+		cadence = ((60 * (cadenceCount - oldCadenceCount) * 1024) / (cadenceTime - oldCadenceTime));
+
 			
 		if (!isNaN(cadence)) {
 			state.CalculatedCadence = cadence;
